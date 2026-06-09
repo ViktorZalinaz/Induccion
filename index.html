@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Revisión Digital</title>
+
+<style>
+
+/* =========================================================
+   [1] BASE GENERAL (centrado perfecto)
+========================================================= */
+body {
+    margin: 0;
+    background: #111;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* =========================================================
+   [2] CONTENEDOR PRINCIPAL
+========================================================= */
+#app {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* =========================================================
+   [3] VISOR (TAMAÑO CARTA)
+========================================================= */
+#libro {
+    width: 90%;
+    max-width: 900px;
+    aspect-ratio: 1.3;    /*Era 900px y ratio 1.54*/
+    overflow: hidden;
+}
+
+/* =========================================================
+   [4] IMAGEN
+========================================================= */
+#pagina img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* =========================================================
+   [5] INTERFAZ (BOTONES)
+========================================================= */
+#ui {
+    position: fixed;
+    bottom: 20px;
+    width: 100%;
+    text-align: center;
+    transition: opacity 0.3s;
+    z-index: 1000; /* ✅ nunca queda debajo */
+}
+
+/* BOTONES */
+button {
+    padding: 8px 15px;
+    margin: 4px;
+    border: none;
+    background: #0078D4;
+    color: white;
+    border-radius: 5px;
+}
+
+/* TEXTO */
+#info {
+    color: white;
+    margin-top: 5px;
+}
+
+/* OCULTO */
+.oculto {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* =========================================================
+   [6] ANIMACIÓN SUAVE
+========================================================= */
+.fade {
+    animation: fadein 0.35s;
+}
+
+@keyframes fadein {
+    from {opacity:0; transform:translateX(30px);}
+    to {opacity:1; transform:translateX(0);}
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+    <!-- =========================================
+         [7] VISOR PRINCIPAL
+    ========================================== -->
+    <div id="libro">
+        <div id="pagina">
+            <img id="imgPagina">
+        </div>
+    </div>
+
+    <!-- =========================================
+         [8] BOTONES
+    ========================================== -->
+    <div id="ui">
+        <button onclick="inicio()">Inicio</button>
+        <button onclick="anterior()">◀</button>
+        <button onclick="siguiente()">▶</button>
+        <button onclick="final()">Final</button>
+        <button onclick="pantallaCompleta()">⛶</button>
+
+        <div id="info"></div>
+    </div>
+
+</div>
+
+<script>
+
+/* =========================================================
+   [9] CONFIGURACIÓN
+========================================================= */
+const total = 22;
+
+
+/* =========================================================
+   [10] ESTADO
+========================================================= */
+let pagina = localStorage.getItem("pagina")
+    ? parseInt(localStorage.getItem("pagina"))
+    : 1;
+
+let uiVisible = true;
+let timerUI;
+let lastTap = 0;
+
+
+/* =========================================================
+   [11] FORMATO DE NÚMEROS
+========================================================= */
+function num(n){
+    return n.toString().padStart(2,'0');
+}
+
+
+/* =========================================================
+   [12] CONTROL DE UI (FIABLE)
+========================================================= */
+function ocultarUI(){
+    document.getElementById("ui").classList.add("oculto");
+    uiVisible = false;
+}
+
+function mostrarUI(){
+
+    let ui = document.getElementById("ui");
+
+    ui.classList.remove("oculto");
+    uiVisible = true;
+
+    clearTimeout(timerUI);
+
+    timerUI = setTimeout(()=>{
+        ocultarUI();
+    }, 2500);
+}
+
+
+/* =========================================================
+   [13] CARGA DE PÁGINA
+========================================================= */
+function cargar(){
+
+    let img = document.getElementById("imgPagina");
+
+    img.classList.remove("fade");
+
+    setTimeout(()=>{
+        img.src = `pages/${num(pagina)}.png`;
+        img.classList.add("fade");
+    }, 50);
+
+    document.getElementById("info").innerText =
+        `Página ${pagina} de ${total}`;
+
+    localStorage.setItem("pagina", pagina);
+}
+
+
+/* =========================================================
+   [14] NAVEGACIÓN
+========================================================= */
+function siguiente(){
+    if(pagina < total){
+        pagina++;
+        cargar();
+    }
+}
+
+function anterior(){
+    if(pagina > 1){
+        pagina--;
+        cargar();
+    }
+}
+
+function inicio(){
+    pagina = 1;
+    cargar();
+}
+
+function final(){
+    pagina = total;
+    cargar();
+}
+
+
+/* =========================================================
+   [15] TECLADO (PC)
+========================================================= */
+document.addEventListener("keydown", e=>{
+    if(e.key==="ArrowRight") siguiente();
+    if(e.key==="ArrowLeft") anterior();
+});
+
+
+/* =========================================================
+   [16] TOUCH (MÓVIL CORREGIDO)
+========================================================= */
+
+let startX = 0;
+let startY = 0;
+let multiTouch = false;
+
+// INICIO DE TOQUE
+document.addEventListener("touchstart", e=>{
+
+    // ✅ si toca botones → ignorar
+    if (e.target.closest("#ui")) return;
+
+    if(e.touches.length > 1){
+        multiTouch = true;
+        return;
+    }
+
+    multiTouch = false;
+
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+
+    ocultarUI();
+
+}, { passive: true });
+
+
+// FIN DE TOQUE
+document.addEventListener("touchend", e=>{
+
+    if (e.target.closest("#ui")) return;
+    if (multiTouch) return;
+
+    let endX = e.changedTouches[0].clientX;
+    let endY = e.changedTouches[0].clientY;
+
+    let diffX = endX - startX;
+    let diffY = endY - startY;
+
+    let limite = 100;
+
+    if(Math.abs(diffX) > limite && Math.abs(diffX) > Math.abs(diffY)){
+        if(diffX < 0) siguiente();
+        else anterior();
+    }
+
+}, { passive: true });
+
+
+/* =========================================================
+   [17] DOBLE TOQUE (MOSTRAR / OCULTAR UI)
+========================================================= */
+document.addEventListener("touchend", function(e){
+
+    if (e.target.closest("#ui")) return;
+
+    let tiempo = new Date().getTime();
+    let intervalo = tiempo - lastTap;
+
+    if(intervalo < 300 && intervalo > 0){
+
+        if(uiVisible){
+            ocultarUI();
+        } else {
+            mostrarUI();
+        }
+    }
+
+    lastTap = tiempo;
+});
+
+
+/* =========================================================
+   [18] CLICK PC
+========================================================= */
+document.addEventListener("click", e=>{
+    if (e.target.closest("#ui")) return;
+    mostrarUI();
+});
+
+
+/* =========================================================
+   [19] PANTALLA COMPLETA
+========================================================= */
+function pantallaCompleta(){
+
+    let elem = document.documentElement;
+
+    if(!document.fullscreenElement){
+        elem.requestFullscreen();
+        ocultarUI();
+    } else {
+        document.exitFullscreen();
+        mostrarUI();
+    }
+}
+
+
+/* =========================================================
+   [20] DETECTAR SALIDA DE FULLSCREEN
+========================================================= */
+document.addEventListener("fullscreenchange", ()=>{
+    if(!document.fullscreenElement){
+        mostrarUI();
+    }
+});
+
+
+/* =========================================================
+   [21] RESIZE / ORIENTACIÓN
+========================================================= */
+window.addEventListener("resize", ()=>{
+    mostrarUI();
+});
+
+
+/* =========================================================
+   [22] INICIO
+========================================================= */
+cargar();
+mostrarUI();
+
+</script>
+
+</body>
+</html>
